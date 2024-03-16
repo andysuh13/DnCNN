@@ -39,9 +39,6 @@ from torch.optim.lr_scheduler import MultiStepLR, ExponentialLR
 import data_generator as dg
 from data_generator import DenoisingDataset
 
-# 테스트해보자. 테스트해보자.
-# 이번에는 연구실 컴퓨터에서 수정해보자.
-
 # Params
 parser = argparse.ArgumentParser(description='PyTorch DnCNN')
 parser.add_argument('--model', default='DnCNN', type=str, help='choose a type of model')
