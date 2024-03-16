@@ -35,7 +35,7 @@ from torch.nn.modules.loss import _Loss
 import torch.nn.init as init
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import MultiStepLR, ExponentialLR
 import data_generator as dg
 from data_generator import DenoisingDataset
 
@@ -44,10 +44,11 @@ from data_generator import DenoisingDataset
 parser = argparse.ArgumentParser(description='PyTorch DnCNN')
 parser.add_argument('--model', default='DnCNN', type=str, help='choose a type of model')
 parser.add_argument('--batch_size', default=128, type=int, help='batch size')
-parser.add_argument('--train_data', default='data/Train400', type=str, help='path of train data')
+parser.add_argument('--train_data', default='../DnCNN_TrainingCodes_v1.0/data/Train400', type=str, help='path of train data')
 parser.add_argument('--sigma', default=25, type=int, help='noise level')
 parser.add_argument('--epoch', default=180, type=int, help='number of train epoches')
 parser.add_argument('--lr', default=1e-3, type=float, help='initial learning rate for Adam')
+
 args = parser.parse_args()
 
 batch_size = args.batch_size
@@ -55,7 +56,7 @@ cuda = torch.cuda.is_available()
 n_epoch = args.epoch
 sigma = args.sigma
 
-save_dir = os.path.join('models', args.model+'_' + 'sigma' + str(sigma))
+save_dir = os.path.join('models', args.model + '_' + 'sigma' + str(sigma) + '_' + 'Adam' + '_' + 'MultiStepLR' + '_' + str(args.lr) + '_' + '000')
 
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
@@ -94,6 +95,18 @@ class DnCNN(nn.Module):
                 init.constant_(m.weight, 1)
                 init.constant_(m.bias, 0)
 
+
+class CharbonnierLoss(nn.Module):
+    """Charbonnier Loss (L1)"""
+
+    def __init__(self, eps=0):
+        super(CharbonnierLoss, self).__init__()
+        self.eps = eps
+
+    def forward(self, x, y):
+        diff = x - y
+        loss = torch.mean(torch.sqrt((diff * diff) + self.eps))
+        return loss
 
 class sum_squared_error(_Loss):  # PyTorch 0.4.1
     """
@@ -136,18 +149,28 @@ if __name__ == '__main__':
         # model.load_state_dict(torch.load(os.path.join(save_dir, 'model_%03d.pth' % initial_epoch)))
         model = torch.load(os.path.join(save_dir, 'model_%03d.pth' % initial_epoch))
     model.train()
+    
     # criterion = nn.MSELoss(reduction = 'sum')  # PyTorch 0.4.1
-    criterion = sum_squared_error()
+    # criterion = sum_squared_error()
+    criterion = CharbonnierLoss()
+
     if cuda:
         model = model.cuda()
          # device_ids = [0]
          # model = nn.DataParallel(model, device_ids=device_ids).cuda()
          # criterion = criterion.cuda()
+    
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    # optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0001)
     scheduler = MultiStepLR(optimizer, milestones=[30, 60, 90], gamma=0.2)  # learning rates
-    for epoch in range(initial_epoch, n_epoch):
+    # lst = np.logspace(-3, -6, 50)
 
-        scheduler.step(epoch)  # step to the learning rate in this epcoh
+    for epoch in range(initial_epoch, n_epoch):
+        
+        scheduler.step(epoch)  # step to the learning rate in this epoch
+        # optimizer.param_groups[0]['lr'] = lst[epoch]
+        print(optimizer.param_groups[0]['lr'])
+
         xs = dg.datagenerator(data_dir=args.train_data)
         xs = xs.astype('float32')/255.0
         xs = torch.from_numpy(xs.transpose((0, 3, 1, 2)))  # tensor of the clean patches, NXCXHXW
@@ -172,9 +195,3 @@ if __name__ == '__main__':
         np.savetxt('train_result.txt', np.hstack((epoch+1, epoch_loss/n_count, elapsed_time)), fmt='%2.4f')
         # torch.save(model.state_dict(), os.path.join(save_dir, 'model_%03d.pth' % (epoch+1)))
         torch.save(model, os.path.join(save_dir, 'model_%03d.pth' % (epoch+1)))
-
-
-
-
-
-

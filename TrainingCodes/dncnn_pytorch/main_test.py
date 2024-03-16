@@ -25,21 +25,21 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.init as init
 import torch
-from skimage.measure import compare_psnr, compare_ssim
+# from skimage.measure import compare_psnr, compare_ssim
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 from skimage.io import imread, imsave
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--set_dir', default='data/Test', type=str, help='directory of test dataset')
-    parser.add_argument('--set_names', default=['Set68', 'Set12'], help='directory of test dataset')
+    parser.add_argument('--set_dir', default='../../testsets', type=str, help='directory of test dataset')
+    parser.add_argument('--set_names', default=['BSD68', 'Set12'], help='directory of test dataset')
     parser.add_argument('--sigma', default=25, type=int, help='noise level')
-    parser.add_argument('--model_dir', default=os.path.join('models', 'DnCNN_sigma25'), help='directory of the model')
-    parser.add_argument('--model_name', default='model_001.pth', type=str, help='the model name')
+    parser.add_argument('--model_dir', default=os.path.join('models', 'DnCNN_sigma25_Adam_MultiStepLR_0.001_charbonnier'), help='directory of the model')
+    parser.add_argument('--model_name', default='model_180.pth', type=str, help='the model name')
     parser.add_argument('--result_dir', default='results', type=str, help='directory of test dataset')
     parser.add_argument('--save_result', default=0, type=int, help='save the denoised image, 1 or 0')
     return parser.parse_args()
-
 
 def log(*args, **kwargs):
      print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S:"), *args, **kwargs)
@@ -159,8 +159,9 @@ if __name__ == '__main__':
                 elapsed_time = time.time() - start_time
                 print('%10s : %10s : %2.4f second' % (set_cur, im, elapsed_time))
 
-                psnr_x_ = compare_psnr(x, x_)
-                ssim_x_ = compare_ssim(x, x_)
+                psnr_x_ = peak_signal_noise_ratio(x, x_)
+                ssim_x_ = structural_similarity(x, x_, data_range=1)
+
                 if args.save_result:
                     name, ext = os.path.splitext(im)
                     show(np.hstack((y, x_)))  # show the image
